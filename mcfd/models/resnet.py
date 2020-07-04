@@ -138,10 +138,11 @@ class ResNet(nn.Module):
 		super(ResNet, self).__init__()
 		if norm_layer is None:
 			norm_layer = nn.BatchNorm2d
-		self.inform=inform
-		self.block_config=block_config
-		self.policy=policy
 		self._norm_layer = norm_layer
+		self.block_config = block_config
+		self.expansion = block.expansion
+		self.inform = inform
+		self.policy = policy
 
 		self.inplanes = width_per_group
 		self.dilation = 1
@@ -254,14 +255,14 @@ class ResNet(nn.Module):
 							out = op[Un_ind].bn3(out)
 						if bl_ind==flag1 and Un_ind==flag2 :
 							return out
-						if Un_ind == 0 and not bl_ind == 0:
+						if Un_ind == 0 and (not bl_ind == 0 or self.expansion == 4):
 							temp = op[0].downsample(y)
 							out =  out + temp
 						else:
 							out = out + y
 					else:
 						out = y
-						if Un_ind == 0 and not bl_ind == 0:
+						if Un_ind == 0 and (not bl_ind == 0 or self.expansion == 4):
 							out = op[0].downsample(y)
 					y = torch.relu(out)
 
