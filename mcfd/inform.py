@@ -89,6 +89,7 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 	else:
 		sampler=RandomSampler(train_dataset, replacement = True)
 	for e in tqdm(range(start_iter, param['mt_score'])):
+		sampler.set_epoch(e)#
 		k = 0
 		trainLoader = load_dataset(train_dataset, batch_size=param['batchsize_score'], shuffle = False, 
 			pin_memory=param['pin_memory'], num_workers=param['num_workers'],sampler = sampler)
@@ -115,8 +116,16 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 						resu[e, k, :] = FI_Y_Blc, j+sum(blocks[i-1::-1])
 					k += 1
 					Err.append(err)
-					if e % (param['mt_score']//10) == 0:
-						print('round {} -- block {} -- unit {} done with {}: {}.'.format(e, i, j, param['score_name'], FI_Y_Blc))
+					if param['parallel']:
+						dist.barrier()
+						resu=torch.from_numpy(resu).to(device)
+						dist.all_reduce(resu, op=torch.distributed.ReduceOp.SUM)
+						resu=resu.to('cpu').detach().numpy()
+						resu=resu/ngpus_per_node
+					#print(resu[e])
+					if e % (param['mt_score']//10) == 0 and gpu==0:
+						#print('round {} -- block {} -- unit {} done with {}: {}.'.format(e, i, j, param['score_name'], FI_Y_Blc))
+						print('round {} -- block {} -- unit {} done with {}: {}.'.format(e, i, j, param['score_name'], resu[e, k-1, 0]))
 						np.save('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), resu)
 						np.save('../output/information/{}_{}_epoch.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), e+1)
 
