@@ -8,12 +8,26 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from collections import OrderedDict
-
-from utils import *
+from torch.optim import lr_scheduler
 from test_model import test
+from collections import OrderedDict
+import torch.nn.functional as F
+
 import models
+from utils import *
 import config
+import argparse
+
+import os
+import random
+import shutil
+import time
+import warnings
+import sys
+
+import torch.nn.parallel
+import torch.backends.cudnn as cudnn
+import torch.distributed as dist
 
 def train(train_loader, model, criterion, optimizer, epoch):
 	batch_time = AverageMeter()
@@ -35,10 +49,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
 		# measure accuracy and record loss
 		prec = Accuracy(output, target, topk=(1,5))
-		
+		prec1=prec[0]
+		prec5=prec[1]
 		losses.update(loss.item(), input.size(0))
-		top1.update(prec[0].item(), input.size(0))
-		top5.update(prec[1].item(), input.size(0))
+		top1.update(prec1.item(), input.size(0))
+		top5.update(prec5.item(), input.size(0))
 
 		# compute gradient and do SGD step
 		optimizer.zero_grad()
@@ -111,9 +126,9 @@ def make_optimizer(model, param):
     
 def make_scheduler(optimizer, param):
     if(param['scheduler_name']=='MultiStepLR'):
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer,milestones=param['milestones'],gamma=0.1)
+        scheduler = lr_scheduler.MultiStepLR(optimizer,milestones=param['milestones'],gamma=0.1)
     elif(param['scheduler_name']=='StepLR'):
-    	scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=param['step_size'], gamma=0.1)
+    	scheduler = lr_scheduler.StepLR(optimizer, step_size=param['step_size'], gamma=0.1)
     else:
         raise ValueError('Scheduler_name name not supported')
     return scheduler
@@ -168,22 +183,27 @@ def run(param, name):
 	criterion = nn.CrossEntropyLoss()
 	optimizer = make_optimizer(model, param)
 	scheduler = make_scheduler(optimizer, param)
+	
 
 	start_iter=0
+	
 	if param['resume']:
 		checkpoint_path = '../output/model/{}_{}_checkpoint.pth.tar'.format(name, stage)
 		checkpoint = torch.load(checkpoint_path)
 		if param['parallel']:
 			new_state_dict = OrderedDict()
 			for k, v in checkpoint['state_dict'].items():
-				name='module.'+k
-				new_state_dict[name]=v
+				save_name='module.'+k
+				new_state_dict[save_name]=v
 			model.load_state_dict(new_state_dict)
 		else:
 			model.load_state_dict(checkpoint['state_dict'])
+		#param['lr']=checkpoint['optimizer_state_dict']['param_groups'][0]['lr']
 		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 		scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 		start_iter= checkpoint['epoch']
+	
+	
 
 	train_model(data_loader, model, criterion, optimizer, scheduler, start_iter, param['epochs'], name)
 

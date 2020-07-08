@@ -18,6 +18,7 @@ def conv1x1(in_planes, out_planes, stride=1):
 class LambdaLayer(nn.Module):
     def __init__(self, planes):
         super(LambdaLayer, self).__init__()
+        # self.lambd = F.pad()
         self.planes = planes
 
     def forward(self, x):
@@ -138,13 +139,12 @@ class ResNet(nn.Module):
 		super(ResNet, self).__init__()
 		if norm_layer is None:
 			norm_layer = nn.BatchNorm2d
+		self.inform=inform
+		self.block_config=block_config
+		self.policy=policy
 		self._norm_layer = norm_layer
-		self.block_config = block_config
-		self.expansion = block.expansion
-		self.inform = inform
-		self.policy = policy
 
-		self.inplanes = width_per_group
+		self.inplanes = 64
 		self.dilation = 1
 		if replace_stride_with_dilation is None:
 			# each element in the tuple indicates if we should replace
@@ -160,17 +160,16 @@ class ResNet(nn.Module):
 		self.bn1 = norm_layer(self.inplanes)
 		self.relu = nn.ReLU(inplace=True)
 		self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-		self.layer1 = self._make_layer(policy[0], block, width_per_group, block_config[0], option = option)
-		self.layer2 = self._make_layer(policy[1], block, width_per_group*2, block_config[1], stride=2,
+		self.layer1 = self._make_layer(policy[0], block, 64, block_config[0], option = option)
+		self.layer2 = self._make_layer(policy[1], block, 128, block_config[1], stride=2,
 									   dilate=replace_stride_with_dilation[0], option = option)
-		self.layer3 = self._make_layer(policy[2], block, width_per_group*4, block_config[2], stride=2,
+		self.layer3 = self._make_layer(policy[2], block, 256, block_config[2], stride=2,
 									   dilate=replace_stride_with_dilation[1], option = option)
-		if len(self.block_config)>3:
-			self.layer4 = self._make_layer(policy[3], block, width_per_group*8, block_config[3], stride=2,
-										   dilate=replace_stride_with_dilation[2],option = option)
+		self.layer4 = self._make_layer(policy[3], block, 512, block_config[3], stride=2,
+									   dilate=replace_stride_with_dilation[2],option = option)
 
 		self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-		self.fc = nn.Linear(width_per_group * (2**(len(block_config)-1)) * block.expansion, num_classes)
+		self.fc = nn.Linear(512 * block.expansion, num_classes)
 
 		for m in self.modules():
 			if isinstance(m, nn.Conv2d):
@@ -226,9 +225,7 @@ class ResNet(nn.Module):
 			x = self.layer1(x)
 			x = self.layer2(x)
 			x = self.layer3(x)
-			if len(self.block_config)>3: 
-				x = self.layer4(x)
-
+			x = self.layer4(x)
 			x = self.avgpool(x)
 			x = torch.flatten(x, 1)
 			x = self.fc(x)
@@ -249,21 +246,24 @@ class ResNet(nn.Module):
 
 						out = op[Un_ind].conv2(out)
 						out = op[Un_ind].bn2(out)
-						if len(self.block_config)>3:
-							out = torch.relu(out)
-							out = op[Un_ind].conv3(out)
-							out = op[Un_ind].bn3(out)
+						out = torch.relu(out)
+
+						out = op[Un_ind].conv3(out)
+						out = op[Un_ind].bn3(out)
 						if bl_ind==flag1 and Un_ind==flag2 :
+							#Result['Bl_{}_Un_{}'.format(bl_ind+1, Un_ind+1)] = out
 							return out
-						if Un_ind == 0 and (not bl_ind == 0 or self.expansion == 4):
-							temp = op[0].downsample(y)
+						if Un_ind == 0:
+							temp = op[0].downsample[0](y)
+							temp = op[0].downsample[1](temp)
 							out =  out + temp
 						else:
 							out = out + y
 					else:
 						out = y
-						if Un_ind == 0 and (not bl_ind == 0 or self.expansion == 4):
-							out = op[0].downsample(y)
+						if Un_ind == 0:
+							temp = op[0].downsample[0](y)
+							out = op[0].downsample[1](temp)
 					y = torch.relu(out)
 
 		return x
@@ -273,8 +273,7 @@ class ResNet(nn.Module):
 
 def resnet18(dataset, policy, model_path, pretrained=True):
 	if dataset == 'tinyImageNet':
-		model = ResNet(block = BasicBlock, block_config = [2, 2, 2, 2], policy = policy, inform=inform,
-			num_classes = 200, width_per_group=64, option = 'B')
+		model = ResNet(block = BasicBlock, block_config = [2, 2, 2, 2], policy = policy, num_classes = 200, width_per_group=64, option = 'B')
 		model.maxpool = nn.Sequential()
 		model.avgpool = nn.AdaptiveAvgPool2d(1)
 	else:
@@ -286,8 +285,7 @@ def resnet18(dataset, policy, model_path, pretrained=True):
 
 def resnet50(dataset, policy, model_path, pretrained=True,inform=None):
 	if dataset == 'ImageNet':
-		model = ResNet(block = Bottleneck, block_config = [3,4,6,3], policy = policy, inform=inform, 
-			num_classes = 1000, width_per_group=64, option = 'B')
+		model = ResNet(block = Bottleneck, block_config = [3,4,6,3], policy = policy, inform=inform,num_classes = 1000, width_per_group=64, option = 'B')
 	else:
 		raise ValueError('Check model resnet50 for other dataset')
 	if pretrained:
@@ -297,8 +295,7 @@ def resnet50(dataset, policy, model_path, pretrained=True,inform=None):
 
 def resnet164(dataset, policy, model_path, pretrained=True):
 	if dataset == 'SVHN':
-		model = ResNet(block = Bottleneck, block_config = [18,18,18], policy = policy, inform = inform, 
-			num_classes = 10, width_per_group=16, option = 'B')
+		model = ResNet(block = Bottleneck, block_config = [18,18,18], policy = policy, num_classes = 10, width_per_group=16, option = 'B')
 		model.maxpool = nn.Sequential()
 		model.avgpool = nn.AvgPool2d(8)
 	else:
@@ -310,9 +307,7 @@ def resnet164(dataset, policy, model_path, pretrained=True):
 
 def resnet56(dataset, policy, model_path, pretrained=True):
 	if dataset == 'CIFAR10':
-		model = ResNet(block = BasicBlock, block_config = [9,9,9], policy = policy, inform = inform, 
-			num_classes = 10, width_per_group=16, option = 'A')
-		model.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
+		model = ResNet(block = BasicBlock, block_config = [9,9,9], policy = policy, num_classes = 10, width_per_group=16, option = 'A')
 		model.maxpool = nn.Sequential()
 		model.avgpool = nn.AvgPool2d(8)
 	else:

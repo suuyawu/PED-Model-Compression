@@ -257,19 +257,36 @@ def digitize(x, xn, bins, ind_arr):
 	return dic
 
 def Get_index_in_Policy(x, policy):
-	l1 = int(len(policy[0]))
-	l2 = int(len(policy[1]))
-	l3 = int(len(policy[2]))
-	for it in x:
-		it = int(it)
-		if it < l1:
-			policy[0][it] = 0
-		elif (it >= l1) and (it < l1+l2):
-			policy[1][it -l1] = 0
-		elif (it >= l1+l2)  and (it < l1+l2+l3):
-			policy[2][it-l1-l2] = 0
-		else:
-			policy[3][it-l1-l2-l3] = 0
+	if len(policy)==3:
+		l1 = int(len(policy[0]))
+		l2 = int(len(policy[1]))
+		l3 = int(len(policy[2]))
+		for it in x:
+			it = int(it)
+			if it < l1:
+				policy[0][it] = 0
+			elif (it >= l1) and (it < l1+l2):
+				policy[1][it -l1] = 0
+			elif (it >= l1+l2)  and (it < l1+l2+l3):
+				policy[2][it-l1-l2] = 0
+			else:
+				policy[3][it-l1-l2-l3] = 0
+	elif len(policy)==4:
+		l1 = int(len(policy[0]))
+		l2 = int(len(policy[1]))
+		l3 = int(len(policy[2]))
+		for it in x:
+			it = int(it)
+			if it < l1:
+				policy[0][it] = 0
+			elif (it >= l1) and (it < l1+l2):
+				policy[1][it -l1] = 0
+			elif (it >= l1+l2)  and (it < l1+l2+l3):
+				policy[2][it-l1-l2] = 0
+			else:
+				policy[3][it-l1-l2-l3] = 0	
+	else:
+		quit()
 	return policy
 
 def Policy_random(policy0, policy0_index, num):

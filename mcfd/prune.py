@@ -38,6 +38,7 @@ def run(param, name):
 	dataset, arch, score_name, _ = name.split('_')
 	information = np.load('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']))
 	information = np.mean(information, axis=0)
+	print(information)
 	if param['stage'] == 1:
 		model_path = '../output/model/{}_{}.pt'.format('_'.join([dataset, arch]), 0)
 		policy_arr = []
@@ -67,8 +68,10 @@ def run(param, name):
 		acc = []
 		blk = []
 		for re in param['hyper']:
+			print(policy_arr)
 			policy0=deepcopy(policy_arr)
 			policy, blk_comp = Policy(policy0, information, re, param)
+			print(policy)
 			model = eval('models.{}.{}(dataset = \'{}\', policy = {}, model_path = \'{}\').to(device)'.format(param['model'],param['arch'], param['dataset'], policy, model_path))
 			model = nn.DataParallel(model, device_ids=param['GPUs']) if param['parallel'] else model
 			acc_comp, _,_ = test(data_loader, model, criterion)

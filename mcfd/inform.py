@@ -122,12 +122,12 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 						dist.all_reduce(resu, op=torch.distributed.ReduceOp.SUM)
 						resu=resu.to('cpu').detach().numpy()
 						resu=resu/ngpus_per_node
-					#print(resu[e])
-					if e % (param['mt_score']//10) == 0 and gpu==0:
+					if gpu==0 or not param['parallel']:
 						#print('round {} -- block {} -- unit {} done with {}: {}.'.format(e, i, j, param['score_name'], FI_Y_Blc))
-						print('round {} -- block {} -- unit {} done with {}: {}.'.format(e, i, j, param['score_name'], resu[e, k-1, 0]))
-						np.save('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), resu)
-						np.save('../output/information/{}_{}_epoch.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), e+1)
+						print('round {} -- block {} -- unit {} done with {}: {}, index {}.:'.format(e, i, j, param['score_name'], resu[e, k-1, 0],resu[e, k-1, 1]))
+						if e!=0:
+							np.save('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), resu)
+						np.save('../output/information/{}_{}_epoch.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), e+1)		
 
 def main():
 	global device, blocks
