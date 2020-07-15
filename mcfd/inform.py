@@ -74,11 +74,8 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 	elif param['score_name'] == 'shannon':
 		from infometrics.MutualInfo import cal_info
 	if param['resume']:
-		resu_old=np.load('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']))
+		resu=np.load('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']))
 		start_iter=np.load('../output/information/{}_{}_epoch.npy'.format('_'.join([dataset, arch, score_name]), param['stage']))
-		score_left=param['mt_score']-start_iter
-		resu_new=np.zeros((score_left, sum(blocks)-Num_deact_blc(policy_arr), 2))
-		resu = np.concatenate((resu_old,resu_new),axis=0)
 	else:
 		start_iter=0
 		resu = np.zeros((param['mt_score'], sum(blocks)-Num_deact_blc(policy_arr), 2))
@@ -127,7 +124,7 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 						print('round {} -- block {} -- unit {} done with {}: {}, index {}.:'.format(e, i, j, param['score_name'], resu[e, k-1, 0],resu[e, k-1, 1]))
 						if e!=0:
 							np.save('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), resu)
-						np.save('../output/information/{}_{}_epoch.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), e+1)		
+						np.save('../output/information/{}_{}_epoch.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), e)		
 
 def main():
 	global device, blocks
