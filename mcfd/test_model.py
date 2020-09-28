@@ -83,14 +83,15 @@ def run(param, name):
 	model = eval('models.{}.{}(dataset = \'{}\', policy = {}, model_path = \'{}\').to(device)'.format(param['model'],param['arch'], param['dataset'], policy, model_path))
 	torch.save(model,'../output/model/{}_{}.pth'.format(name, param['stage']))
 	model = nn.DataParallel(model, device_ids=param['GPUs']) if param['parallel'] else model
-
 	test_dataset = fetch_dataset(param['dataset'], split = 'test')
 	test_loader = load_dataset(test_dataset, param['batch_size']['test'], 
 			param['shuffle']['test'], param['pin_memory'], param['num_workers'])
 	criterion = nn.CrossEntropyLoss()
 	prec1, prec5, batch_time = test(test_loader, model, criterion)
-	num_param = Param_cnt(model)
-	test_result = {'acc@1':prec1,'acc@5':prec5, 'batch_time': batch_time, 'num_param':num_param}
+	#num_param = Param_cnt(model)
+	model=model.cuda()
+	num_flop, num_param = Flops_cnt(model, param, device)
+	test_result = {'acc@1':prec1,'acc@5':prec5, 'batch_time': batch_time, 'num_param':num_param,'num_flop':num_flop}
 	print(test_result)
 	if not path.exists('../output/result/test_result.pkl'):
 		results = {}

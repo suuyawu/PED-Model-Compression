@@ -77,7 +77,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 	print('Total time for one train run is {}s'.format(time_all))
 	return losses.history, top1.history
 
-def train_model(data_loader, model, criterion, optimizer, scheduler, start_iter, epochs, name,best_prec1=0,best_prec5=0):
+def train_model(data_loader, model, criterion, optimizer, scheduler,start_iter, epochs, name,best_prec1=0,best_prec5=0):
 	best_prec1 = best_prec1
 	best_prec5 = best_prec5
 	loss = []

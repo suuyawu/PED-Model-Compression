@@ -83,7 +83,7 @@ class Iter_data(object):
 		yield (image, label)
 
 ### data
-def fetch_dataset(data_name, split = 'train', normalize = True, cutout = False):
+def fetch_dataset(data_name, split = 'train', normalize = True, cutout = True):
 	print('loading data {}...'.format(data_name))
 	if(data_name=='CIFAR10'):
 		if(normalize):
@@ -191,7 +191,7 @@ def fetch_dataset(data_name, split = 'train', normalize = True, cutout = False):
 				transforms.ToTensor(),
 				transforms.Normalize(normMean, normStd)])
 			if cutout:
-				trainTransform.transforms.append(Cutout(56))
+				trainTransform.transforms.append(Cutout(112))
 			testTransform = transforms.Compose([
 				transforms.Resize(256),
 				transforms.CenterCrop(224),

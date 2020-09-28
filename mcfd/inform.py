@@ -17,7 +17,7 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.multiprocessing as mp
-def Feature_Anal_IB(model, trainLoader, param,device): #not using the whole 50000 input samples	
+def Feature_Anal_IB(model, trainLoader, param,device): #not using the whole 50000 input samples
 	for i, (images, labels) in enumerate(trainLoader):
 		if i == 0:
 			l_temp = labels
@@ -102,8 +102,9 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 					else:
 						model.to(device)
 						model = torch.nn.DataParallel(model, device_ids=param['GPUs'])
-					model.eval()
-					res, labels = Feature_Anal_IB(model, trainLoader, param,device)
+					with torch.no_grad():
+						model.eval()
+						res, labels = Feature_Anal_IB(model, trainLoader, param,device)
 					FI_Y_Blc, err = cal_info(res, labels, param['classes_score'][param['dataset']])
 					if param['score_standardize']:
 						FI_Y_Blc = FI_Y_Blc / np.sqrt(res.shape[1])
