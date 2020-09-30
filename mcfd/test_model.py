@@ -89,7 +89,6 @@ def run(param, name):
 	criterion = nn.CrossEntropyLoss()
 	prec1, prec5, batch_time = test(test_loader, model, criterion)
 	#num_param = Param_cnt(model)
-	model=model.cuda()
 	num_flop, num_param = Flops_cnt(model, param, device)
 	test_result = {'acc@1':prec1,'acc@5':prec5, 'batch_time': batch_time, 'num_param':num_param,'num_flop':num_flop}
 	print(test_result)
