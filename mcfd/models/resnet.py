@@ -1,3 +1,13 @@
+'''
+The Pytorch Implementation of Pruning-version ResNet-s architecture, as described in paper [1]. 
+This implementation is modifed based on the Pytorch released source in [2].
+
+Reference:
+[1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
+    Deep Residual Learning for Image Recognition. arXiv:1512.03385
+[2] https://pytorch.org/hub/pytorch_vision_resnet/
+'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -225,7 +235,7 @@ class ResNet(nn.Module):
 			x = self.layer1(x)
 			x = self.layer2(x)
 			x = self.layer3(x)
-			x = self.layer4(x)
+			x = self.layer4(x) # layer4 can be commented depends on resnet structure
 			x = self.avgpool(x)
 			x = torch.flatten(x, 1)
 			x = self.fc(x)
@@ -251,7 +261,6 @@ class ResNet(nn.Module):
 						out = op[Un_ind].conv3(out)
 						out = op[Un_ind].bn3(out)
 						if bl_ind==flag1 and Un_ind==flag2 :
-							#Result['Bl_{}_Un_{}'.format(bl_ind+1, Un_ind+1)] = out
 							return out
 						if Un_ind == 0:
 							temp = op[0].downsample[0](y)
@@ -271,9 +280,9 @@ class ResNet(nn.Module):
 	def forward(self, x):
 		return self._forward_impl(x)
 
-def resnet18(dataset, policy, model_path, pretrained=True):
+def resnet18(dataset, policy, model_path, pretrained=True, inform=None):
 	if dataset == 'tinyImageNet':
-		model = ResNet(block = BasicBlock, block_config = [2, 2, 2, 2], policy = policy, num_classes = 200, width_per_group=64, option = 'B')
+		model = ResNet(block = BasicBlock, block_config = [2, 2, 2, 2], policy = policy, inform = inform, num_classes = 200, width_per_group=64, option = 'B')
 		model.maxpool = nn.Sequential()
 		model.avgpool = nn.AdaptiveAvgPool2d(1)
 	else:
@@ -283,9 +292,9 @@ def resnet18(dataset, policy, model_path, pretrained=True):
 		model.load_state_dict(state_dict, strict= False)
 	return model
 
-def resnet50(dataset, policy, model_path, pretrained=True,inform=None):
+def resnet50(dataset, policy, model_path, pretrained=True, inform=None):
 	if dataset == 'ImageNet':
-		model = ResNet(block = Bottleneck, block_config = [3,4,6,3], policy = policy, inform=inform,num_classes = 1000, width_per_group=64, option = 'B')
+		model = ResNet(block = Bottleneck, block_config = [3,4,6,3], policy = policy, inform = inform,num_classes = 1000, width_per_group=64, option = 'B')
 	else:
 		raise ValueError('Check model resnet50 for other dataset')
 	if pretrained:
@@ -293,9 +302,9 @@ def resnet50(dataset, policy, model_path, pretrained=True,inform=None):
 		model.load_state_dict(state_dict, strict= False)
 	return model
 
-def resnet164(dataset, policy, model_path, pretrained=True):
+def resnet164(dataset, policy, model_path, pretrained=True, inform=None):
 	if dataset == 'SVHN':
-		model = ResNet(block = Bottleneck, block_config = [18,18,18], policy = policy, num_classes = 10, width_per_group=16, option = 'B')
+		model = ResNet(block = Bottleneck, block_config = [18,18,18], policy = policy, inform = inform, num_classes = 10, width_per_group=16, option = 'B')
 		model.maxpool = nn.Sequential()
 		model.avgpool = nn.AvgPool2d(8)
 	else:
@@ -305,9 +314,9 @@ def resnet164(dataset, policy, model_path, pretrained=True):
 		model.load_state_dict(state_dict, strict= False)
 	return model
 
-def resnet56(dataset, policy, model_path, pretrained=True):
+def resnet56(dataset, policy, model_path, pretrained=True, inform=None):
 	if dataset == 'CIFAR10':
-		model = ResNet(block = BasicBlock, block_config = [9,9,9], policy = policy, num_classes = 10, width_per_group=16, option = 'A')
+		model = ResNet(block = BasicBlock, block_config = [9,9,9], policy = policy, inform = inform, num_classes = 10, width_per_group=16, option = 'A')
 		model.maxpool = nn.Sequential()
 		model.avgpool = nn.AvgPool2d(8)
 	else:

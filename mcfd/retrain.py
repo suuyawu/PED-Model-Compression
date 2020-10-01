@@ -1,40 +1,27 @@
 """
-Retrain the pruned model with only active units according to the policy array and with the weights from the previous stage (NOT FROM SCRATCH)
+Retrain the pruned model with active units
 """
-from os import path
 import pickle
 import time
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-from test_model import test
 from collections import OrderedDict
-import torch.nn.functional as F
 
+import config
 import models
 from utils import *
-import config
-import argparse
-
-import os
-import random
-import shutil
-import time
-import warnings
-import sys
-
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.distributed as dist
+from test_model import test
 
 def train(train_loader, model, criterion, optimizer, epoch):
 	batch_time = AverageMeter()
 	losses = AverageMeter()
 	top1 = AverageMeter()
 	top5 = AverageMeter()
-	# switch to train mode
+
 	model.train()
 	end = time.time()
 	start_time=time.time()
@@ -42,12 +29,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
 		input = input.to(device)
 		target = target.to(device)
 
-		# compute output
 		output = model(input)
 		loss = criterion(output, target)
 		loss = torch.mean(loss) if parallel else loss
 
-		# measure accuracy and record loss
 		prec = Accuracy(output, target, topk=(1,5))
 		prec1=prec[0]
 		prec5=prec[1]
@@ -55,12 +40,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
 		top1.update(prec1.item(), input.size(0))
 		top5.update(prec5.item(), input.size(0))
 
-		# compute gradient and do SGD step
 		optimizer.zero_grad()
 		loss.backward()
 		optimizer.step()
 
-		# measure elapsed time
 		batch_time.update(time.time() - end)
 		end = time.time()
 
@@ -77,7 +60,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 	print('Total time for one train run is {}s'.format(time_all))
 	return losses.history, top1.history
 
-def train_model(data_loader, model, criterion, optimizer, scheduler,start_iter, epochs, name,best_prec1=0,best_prec5=0):
+def train_model(data_loader, model, criterion, optimizer, scheduler, start_iter, epochs, name, best_prec1=0, best_prec5=0):
 	best_prec1 = best_prec1
 	best_prec5 = best_prec5
 	loss = []
@@ -94,11 +77,11 @@ def train_model(data_loader, model, criterion, optimizer, scheduler,start_iter, 
 		is_best = prec1 > best_prec1
 		best_prec1 = max(prec1, best_prec1)
 		test_acc.append(best_prec1)
-		#is_best_5 = prec5 > best_prec5
 		best_prec5 = max(prec5, best_prec5)
 		test_acc.append(best_prec5)
 		end_time=time.time()
 		time_all=end_time-start_time
+		
 		save_checkpoint({
 			'epoch': epoch + 1,
 			'state_dict': model.module.state_dict() if parallel else model.state_dict(),
@@ -140,7 +123,7 @@ def run(param, name):
 	np.random.seed(seed)
 
 	if stage == 1:
-		dataset, arch, score_name, policy_mode = name.split('_')
+		dataset, arch, _, _ = name.split('_')
 		model_path = '../output/model/{}_{}.pt'.format('_'.join([dataset, arch]), 0)
 		if not param['special_TAG'] == '':
 			name = '_'.join([
@@ -184,9 +167,7 @@ def run(param, name):
 	optimizer = make_optimizer(model, param)
 	scheduler = make_scheduler(optimizer, param)
 	
-
 	start_iter=0
-	
 	if param['resume']:
 		checkpoint_path = '../output/model/{}_{}_checkpoint.pth.tar'.format(name, stage)
 		checkpoint = torch.load(checkpoint_path)
@@ -198,12 +179,9 @@ def run(param, name):
 			model.load_state_dict(new_state_dict)
 		else:
 			model.load_state_dict(checkpoint['state_dict'])
-		#param['lr']=checkpoint['optimizer_state_dict']['param_groups'][0]['lr']
 		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 		scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-		start_iter= checkpoint['epoch']
-	
-	
+		start_iter = checkpoint['epoch']
 
 	train_model(data_loader, model, criterion, optimizer, scheduler, start_iter, param['epochs'], name)
 

@@ -1,15 +1,14 @@
 """
-prune units
+test model after pruning
 """
 from os import path
 import pickle
 import numpy as np
 import torch
-import torch.nn.functional as F
 
+import config
 import models
 from utils import *
-import config
 
 parser = config.prepare_parser()
 param = vars(parser.parse_args())
@@ -20,7 +19,6 @@ def test(data_loader, model, criterion):
 	losses = AverageMeter()
 	top1 = AverageMeter()
 	top5= AverageMeter()
-	# switch to evaluate mode
 	model.eval()
 	start_time=time.time()
 	end = time.time()
@@ -28,18 +26,15 @@ def test(data_loader, model, criterion):
 		input = input.to(device)
 		target = target.to(device)
 
-		# compute output
 		output = model(input)
 		loss = criterion(output, target)
 
-		# measure accuracy and record loss
 		prec = Accuracy(output, target, topk=(1,5))
 		prec1=prec[0]
 		prec5=prec[1]
 		losses.update(loss.item(), input.size(0))
 		top1.update(prec1.item(), input.size(0))
 		top5.update(prec5.item(), input.size(0))
-		# measure elapsed time
 		batch_time.update(time.time() - end)
 		end = time.time()
 
@@ -66,7 +61,7 @@ def run(param, name):
 	np.random.seed(seed)
 
 	if param['stage'] == 0:
-		dataset, arch, score_name, policy_mode = name.split('_')
+		dataset, arch, _, _ = name.split('_')
 		model_path = '../output/model/{}_{}.pt'.format('_'.join([dataset, arch]), 0)
 		policy = []
 		for num_units in param['blocks'][param['arch']]:
@@ -88,7 +83,6 @@ def run(param, name):
 			param['shuffle']['test'], param['pin_memory'], param['num_workers'])
 	criterion = nn.CrossEntropyLoss()
 	prec1, prec5, batch_time = test(test_loader, model, criterion)
-	#num_param = Param_cnt(model)
 	num_flop, num_param = Flops_cnt(model, param, device)
 	test_result = {'acc@1':prec1,'acc@5':prec5, 'batch_time': batch_time, 'num_param':num_param,'num_flop':num_flop}
 	print(test_result)

@@ -1,33 +1,32 @@
 """
-calculate the information
+measure the dependence
 """
 import os
 import time
+from tqdm import tqdm
 import numpy as np
 import torch
-import torch.nn.functional as F
-import torchvision
-from tqdm import tqdm
 from torch.utils.data.sampler import RandomSampler
-import infometrics
-import models
-from utils import *
-import config
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.multiprocessing as mp
-def Feature_Anal_IB(model, trainLoader, param,device): #not using the whole 50000 input samples
+
+import infometrics
+import config
+import models
+from utils import fetch_dataset, load_dataset, Num_deact_blc
+
+def Feature_Anal_IB(model, trainLoader, param, device):
 	for i, (images, labels) in enumerate(trainLoader):
 		if i == 0:
 			l_temp = labels
 		else:
 			l_temp = torch.cat((l_temp, labels), dim=0)
 		im = images.to(device)
-		Result=model(im)
+		Result = model(im)
 		Result = Result.view(param['batchsize_score'], -1)
 
-		if param['score_normalize']:
+		if param['score_normalize']: #normalize score values
 			Result = (Result- torch.mean(Result, dim=1, keepdim=True))/torch.std(Result, dim=1, keepdim=True)
 		temp1 = Result.to('cpu') 
 		temp1  = temp1.detach().numpy()
@@ -35,29 +34,27 @@ def Feature_Anal_IB(model, trainLoader, param,device): #not using the whole 5000
 			res = temp1
 		else:
 			res = np.concatenate((res, temp1), 0)
-			#res=torch.cat((res, Result), 0)
 		if i == param['mt_batch']:
 			return res, l_temp
-	# res = res.to('cpu') 
-	# res  = res.detach().numpy()
-	# return res, l_temp 
 
-def run(gpu,ngpus_per_node,param, name,args,blocks,device):
+def run(gpu, ngpus_per_node, param, name, args, blocks, device):
 	if param['parallel']:
 		args.gpu = gpu
 		if args.gpu is not None:
 			print("Use GPU: {} for training".format(args.gpu))
 		args.rank = args.rank * ngpus_per_node + gpu
+	
 	seed = param['seed']
 	torch.manual_seed(seed)
 	torch.cuda.manual_seed(seed)
 	np.random.seed(seed)
-	if param['parallel']:
-		dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,world_size=args.world_size, rank=args.rank)
+	
+	if param['parallel']: #multiple gpus parallel computing
+		dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
 		args.batchsize_score = int(args.batchsize_score / ngpus_per_node)
 		args.num_workers = int(args.num_workers / ngpus_per_node)
-	#dist.init_process_group(backend=args.dist_backend, world_size=args.world_size, rank=args.rank)
-	dataset, arch, score_name, policy_mode = name.split('_')
+	
+	dataset, arch, score_name, _ = name.split('_')
 	if param['stage'] == 1:
 		model_path = '../output/model/{}_{}.pt'.format('_'.join([dataset, arch]), 0)
 		policy_arr = []
@@ -86,7 +83,7 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 	else:
 		sampler=RandomSampler(train_dataset, replacement = True)
 	for e in tqdm(range(start_iter, param['mt_score'])):
-		sampler.set_epoch(e)#
+		sampler.set_epoch(e)
 		k = 0
 		trainLoader = load_dataset(train_dataset, batch_size=param['batchsize_score'], shuffle = False, 
 			pin_memory=param['pin_memory'], num_workers=param['num_workers'],sampler = sampler)
@@ -104,7 +101,7 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 						model = torch.nn.DataParallel(model, device_ids=param['GPUs'])
 					with torch.no_grad():
 						model.eval()
-						res, labels = Feature_Anal_IB(model, trainLoader, param,device)
+						res, labels = Feature_Anal_IB(model, trainLoader, param, device)
 					FI_Y_Blc, err = cal_info(res, labels, param['classes_score'][param['dataset']])
 					if param['score_standardize']:
 						FI_Y_Blc = FI_Y_Blc / np.sqrt(res.shape[1])
@@ -121,7 +118,6 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 						resu=resu.to('cpu').detach().numpy()
 						resu=resu/ngpus_per_node
 					if gpu==0 or not param['parallel']:
-						#print('round {} -- block {} -- unit {} done with {}: {}.'.format(e, i, j, param['score_name'], FI_Y_Blc))
 						print('round {} -- block {} -- unit {} done with {}: {}, index {}.:'.format(e, i, j, param['score_name'], resu[e, k-1, 0],resu[e, k-1, 1]))
 						if e!=0:
 							np.save('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']), resu)
@@ -130,7 +126,7 @@ def run(gpu,ngpus_per_node,param, name,args,blocks,device):
 def main():
 	global device, blocks
 	parser = config.prepare_parser()
-	args=parser.parse_args()
+	args = parser.parse_args()
 	param = vars(parser.parse_args())
 	device = torch.device(param['device'])
 	blocks = param['blocks'][param['arch']]
@@ -139,9 +135,9 @@ def main():
 	ngpus_per_node = torch.cuda.device_count()
 	args.world_size = ngpus_per_node * args.world_size
 	if param['parallel']:
-		mp.spawn(run, nprocs=ngpus_per_node, args=(ngpus_per_node,param, name,args,blocks,device))
+		mp.spawn(run, nprocs=ngpus_per_node, args=(ngpus_per_node, param, name, args, blocks, device))
 	else:
-		run(args.gpu,ngpus_per_node,param, name,args,blocks,device)
+		run(args.gpu, ngpus_per_node, param, name, args,blocks, device)
 
 if __name__ == '__main__':
 	main()

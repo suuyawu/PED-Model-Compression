@@ -1,3 +1,8 @@
+"""
+This code is directly from: https://github.com/llimllib/ckmeans
+The original paper of ckmeans:
+Wang H, Song M. Ckmeans.1d.dp: Optimal k-means Clustering in One Dimension by Dynamic Programming. R J. 2011;3(2):29–33.
+"""
 import numpy as np
 
 def ssq(j, i, sum_x, sum_x_sq):

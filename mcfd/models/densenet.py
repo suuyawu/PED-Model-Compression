@@ -1,3 +1,12 @@
+'''
+The Pytorch Implementation of Pruning-version DenseNet-s Architecture, as described in paper [1]. 
+This implementation is modifed based on the Pytorch released source in [2].
+
+Reference:
+[1] Gao Huang, Zhuang Liu, Laurens van der Maaten, Kilian Q. Weinberger
+    Densely Connected Convolutional Networks. arXiv:1608.06993.
+[2] https://pytorch.org/hub/pytorch_vision_densenet/
+'''
 import re
 import torch
 import torch.nn as nn
@@ -143,7 +152,6 @@ class DenseNet(nn.Module):
 
 	def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16),
 				 num_init_features=64, policy=[[1]*6,[1]*12,[1]*24,[1]*16], inform, bn_size=4, drop_rate=0, num_classes=1000, memory_efficient=False):
-
 		super(DenseNet, self).__init__()
 
 		# First convolution

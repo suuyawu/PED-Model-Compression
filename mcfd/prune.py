@@ -4,30 +4,14 @@ prune units
 from os import path
 import pickle
 import numpy as np
-import torch
-import torch.nn.functional as F
-
-import models
-from utils import *
-from test_model import test
-import config
-import argparse
-import os
-import random
-import shutil
-import time
-import warnings
-import sys
-
-import torch.nn as nn
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.distributed as dist
-import torch.optim
-import torch.multiprocessing as mp
-import torch.utils.data
-import torch.utils.data.distributed
 from copy import deepcopy
+import torch
+import torch.nn as nn
+
+import config
+import models
+from utils import Policy, fetch_dataset, validate_dataset, load_dataset
+from test_model import test
 
 def run(param, name):
 	seed = param['seed']
@@ -38,7 +22,6 @@ def run(param, name):
 	dataset, arch, score_name, _ = name.split('_')
 	information = np.load('../output/information/{}_{}.npy'.format('_'.join([dataset, arch, score_name]), param['stage']))
 	information = np.mean(information, axis=0)
-	print(information)
 	if param['stage'] == 1:
 		model_path = '../output/model/{}_{}.pt'.format('_'.join([dataset, arch]), 0)
 		policy_arr = []
@@ -68,13 +51,11 @@ def run(param, name):
 		acc = []
 		blk = []
 		for re in param['hyper']:
-			print(policy_arr)
 			policy0=deepcopy(policy_arr)
 			policy, blk_comp = Policy(policy0, information, re, param)
-			print(policy)
 			model = eval('models.{}.{}(dataset = \'{}\', policy = {}, model_path = \'{}\').to(device)'.format(param['model'],param['arch'], param['dataset'], policy, model_path))
 			model = nn.DataParallel(model, device_ids=param['GPUs']) if param['parallel'] else model
-			acc_comp, _,_ = test(data_loader, model, criterion)
+			acc_comp, _, _ = test(data_loader, model, criterion)
 			print('Experiment with hyper = {} done.'.format(re))
 			acc.append(acc_comp)
 			blk.append(blk_comp)
@@ -85,8 +66,7 @@ def run(param, name):
 		np.save('../output/policy/{}_{}.npy'.format(name, param['stage']), policy)
 		model = eval('models.{}.{}(dataset = \'{}\', policy = {}, model_path = \'{}\').to(device)'.format(param['model'],param['arch'], param['dataset'], policy, model_path))
 		model = nn.DataParallel(model, device_ids=param['GPUs']) if param['parallel'] else model
-		acc_comp, _,_ = test(data_loader, model, criterion)
-		
+		acc_comp, _, _ = test(data_loader, model, criterion)
 		prune_result = {'acc':acc_comp, 'block':blk_comp}
 		if not path.exists('../output/result/prune_result.pkl'):
 			results ={}
@@ -103,20 +83,6 @@ def main():
 	param = vars(parser.parse_args())
 	device = torch.device(param['device'])
 	name = config.name_from_config(param)
-	# if param['dist_url'] == "env://" and args.world_size == -1:
-	# 	args.world_size = int(os.environ["WORLD_SIZE"])
-	# 	args.distributed = args.world_size > 1 or args.multiprocessing_distributed
-	# 	ngpus_per_node = torch.cuda.device_count()
-    # if args.multiprocessing_distributed:
-    #     # Since we have ngpus_per_node processes per node, the total world_size
-    #     # needs to be adjusted accordingly
-    #     args.world_size = ngpus_per_node * args.world_size
-    #     # Use torch.multiprocessing.spawn to launch distributed processes: the
-    #     # main_worker process function
-    #     mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))####
-    # else:
-    #     # Simply call main_worker function
-    #     main_worker(args.gpu, ngpus_per_node, args)
 	print(param, name)
 	run(param, name)
 

@@ -5,13 +5,13 @@ We measure new model-free information between the feature maps and the output of
 In this implementation, we focus on pruning networks with skip-connections by quantifying how informative of the units within the skip-connections about the output of the model, e.g., ReseNet and DenseNet.
 
 ## Code structure
--data/
+- data/
   - CIFAR10/
   - CIFAR100/
   - tiny-imagenet-200/
   - SVHN/
   - ImageNet/
--mcfd/
+- mcfd/
   - infometrics/
 	- Energydist.py
 	- FisherInfo.py
@@ -20,7 +20,6 @@ In this implementation, we focus on pruning networks with skip-connections by qu
 	- resnet.py
 	- densenet.py
   - config.py
-  - flops.py
   - test_model.py
   - utils.py
   - ckmeans.py
